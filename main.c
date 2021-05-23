@@ -9,124 +9,105 @@
 	*/
 
 #include "stm32f3xx.h"                  // Device header
-int counter;
 
-void delay(int a); // prototype for delay function
+int count =255; 
+
+void SubFunction(void);
 
 int main(void)
 {
 	// Enable clock on GPIO port E
 	RCC->AHBENR |= RCC_AHBENR_GPIOEEN;
 	
-	TIM3->DIER |= TIM_DIER_UIE; //Set DIER register to watch out for an update
-	NVIC_EnableIRQ(TIM3_IRQn);  // Enable timer3 interrupt requests in NVIC
-	
-	//Lab 2: Connect to the system clock
-	RCC->AHBENR |=RCC_APB1ENR_DAC1EN;
-
-	//Disable the buffer funciton.
-	DAC1->CR |= DAC_CR_BOFF1;
-	DAC1->CR |= DAC_CR_EN1;
-	DAC->DHR12R1 |=DAC_DHR12L1_DACC1DHR;
-	
-	//Interrupt fpr task 3.2
+	//Enable timer clock
 	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
-	TIM3->PSC = 799; //Prescalor vale in timer3 set as 719999
-	TIM3->ARR = 99; //Auto resent register of timer3 set as 99
-	TIM3->CR1 |= TIM_CR1_CEN;
-	
-	
+	//Set timer to 1s period
+	TIM3->PSC = 799; // prescalor value in Timer 3 = 799
+	TIM3->ARR = 9999; // Auto-Reset Register of Timer 3 set to 10^4 - 1 counts
 	
 	// GPIOE is a structure defined in stm32f303xc.h file
 	// Define settings for each output pin using GPIOE structure
-	GPIOE->MODER |= 0x55550000; // Set mode of each pin in port E 8 - 15
+	GPIOE->MODER |= 0x55555555; // Set mode of each pin in port E
+	GPIOE->OTYPER &= ~(0x0000FFFF); // Set output type for each pin required in Port E
 	
-	
-	GPIOE->OTYPER |= ~(0x00000100); // Set output type for pin 8 required in Port E
-	GPIOE->OTYPER &= ~(0x00000200); // Set output type for pin 9 
-	GPIOE->OTYPER &= ~(0x00000400); // Set output type for pin 10
-	GPIOE->OTYPER &= ~(0x00000800); // Set output type for pin 11 
-	GPIOE->OTYPER &= ~(0x00001000); // Set output type for pin 12 
-	GPIOE->OTYPER &= ~(0x00002000); // Set output type for pin 13 
-	GPIOE->OTYPER &= ~(0x00004000); // Set output type for pin 14 
-	GPIOE->OTYPER &= ~(0x00008000); // Set output type for pin 15 
-	
-	GPIOE->PUPDR |= ~(0x00010000); // Set Pull up/Pull down resistor configuration for Port E pin 8
-	GPIOE->PUPDR &= ~(0x00080000); // Set Pull up/Pull down resistor configuration for Port E pin 9
-	GPIOE->PUPDR &= ~(0x00200000); // Set Pull up/Pull down resistor configuration for Port E pin 10
-	GPIOE->PUPDR &= ~(0x00800000); // Set Pull up/Pull down resistor configuration for Port E pin 11
-	GPIOE->PUPDR &= ~(0x01000000); // Set Pull up/Pull down resistor configuration for Port E pin 12
-	GPIOE->PUPDR &= ~(0x08000000); // Set Pull up/Pull down resistor configuration for Port E pin 13
-	GPIOE->PUPDR &= ~(0x20000000); // Set Pull up/Pull down resistor configuration for Port E pin 14
-	GPIOE->PUPDR &= ~(0x80000000); // Set Pull up/Pull down resistor configuration for Port E pin 15
+	GPIOE->PUPDR |= 0x55555555; // Set Pull up/Pull down resistor configuration for Port E
 
+	TIM3->DIER |= TIM_DIER_UIE; // Set DIER register to watch out for an ‘Update’ Interrupt Enable (UIE) – or 0x00000001
+	NVIC_EnableIRQ(TIM3_IRQn); // Enable Timer ‘x’ interrupt request in NVIC
+
+	TIM3->CR1 |= TIM_CR1_CEN;
 	// Main programme loop - make LED 4 (attached to pin PE.0) turn on and off	
-	while (1)
-  {
-		GPIOE->BSRRL = 0x0100; // Set delay turn on for LED8
-		delay(700000);
-		GPIOE->BSRRL = 0x0200; // Set delay turn on for LED9
-		delay(700000);
-		GPIOE->BSRRL = 0x0400;// Set delay turn on for LED10
-		delay(700000);
-		GPIOE->BSRRL = 0x0800;// Set delay turn on for LED11
-		delay(700000);
-		GPIOE->BSRRL = 0x1000;// Set delay turn on for LED12
-		delay(700000);
-		GPIOE->BSRRL = 0x2000;// Set delay turn on for LED13
-		delay(700000);
-		GPIOE->BSRRL = 0x4000;// Set delay turn on for LED14
-		delay(700000);
-		GPIOE->BSRRL = 0x8000;// Set delay turn on for LED15
-		delay(700000);
+	
+	SubFunction(); // Function call for ADC Initialisation
+	
+	while(1)
+	{
+
 		
-		
-		GPIOE->BSRRH = 0x0100; // Set delay turn off do LED8
-		delay(700000);
-		GPIOE->BSRRH = 0x0200; // Set delay turn off do LED9
-		delay(700000);
-		GPIOE->BSRRH = 0x0400; // Set delay turn off do LED10
-		delay(700000);
-		GPIOE->BSRRH = 0x0800; // Set delay turn off do LED11
-		delay(700000);
-		GPIOE->BSRRH = 0x1000; // Set delay turn off do LED12
-		delay(700000);
-		GPIOE->BSRRH = 0x2000; // Set delay turn off do LED13
-		delay(700000);
-		GPIOE->BSRRH = 0x4000; // Set delay turn off do LED14
-		delay(700000);
-		GPIOE->BSRRH = 0x8000; // Set delay turn off do LED15
-		delay(700000);
+	if( count>65535){	
+		//resets LEDs on overflow
+		GPIOE->BSRRH = 0xFF00;
+		count = 255;
+		}
 	}
 
 }
 
-// Delay function to occupy processor
-void delay (int a)
-	{
-    volatile int i,j;
+void TIM3_IRQHandler()
+{
+if ((TIM3->SR & TIM_SR_UIF) !=0) // Check interrupt source is from the ‘Update’ interrupt flag
+{
+		GPIOE->BSRRH |= ~count; 	
+		GPIOE->BSRRL |= count; 
+		count=count+256;
 
-    for (i=0 ; i < a ; i++)
-    {
-        j++;
-    }
+}
+TIM3->SR &= ~TIM_SR_UIF; // Reset ‘Update’ interrupt flag in the SR register
+}
 
-    return;
-	}
+void SubFunction(void) //setting up the ADC
+{
+ADC1->CR &= 0xCFFFFFFF; //Reset ADC
+ADC1->CR |= 0x10000000; //Enable ADC
+	
+//count 100 times
+int j = 0;
+while(j<100)
+{
+j++;
+}
+//Calibrate ADC
+ADC1->CR &= 0xBFFFFFFF; //single-ended calibration
+ADC1->CR |= 0x80000000; //start calibration
 
-//Enable interrupt to be set as Update interrupt on timer 3
+//Enable Clock connections to ADC Peripheral
+RCC->CFGR2 |= RCC_CFGR2_ADCPRE12_DIV2;
+RCC->AHBENR |= RCC_AHBENR_ADC12EN;
+ADC1_2_COMMON->CCR |= 0x00010000;
 
-	void TIM3_IRQHandler()
-	{
-	if ((TIM3->SR & TIM_SR_UIF) !=0) // Check interrupt source is from the ‘Update’ interrupt flag
-	{
-		counter++;
-		if(counter & 0x0001)
-		//turns the LED on
-			GPIOE->BSRRL = 0x0200; // sets pin 9 to flash on
-		else
-			GPIOE->BSRRH = 0x0200; //sets pin 9 not to flash
-	}
-	TIM3->SR &= ~TIM_SR_UIF; // Reset ‘Update’ interrupt flag in the SR register
-	}
+// Select Input pin & Configure GPIO Port
+GPIOA->MODER &= 0xFFFFFFFE; //Mode of PA0 in Port A to analogue
+GPIOA->MODER |= 0x00000002; //Mode of PA0 in Port A to analogue
 
+//Configure ADC;
+ADC1->CFGR |= 0x00000010; // SET RESOLUTION TO 8 BIT
+ADC1->CFGR &= 0xFFFFFFF7; // SET RESOLUTION TO 8 BIT
+ADC1->CFGR &= 0xFFFFFFDF; // SET ALIGNMENT TO RIGHT
+ADC1->CFGR &= 0xFFFFDFFF; // SET OPERATION TO NON-CONTINUOUS
+
+//Configure Multiplexing Options
+ADC1->SQR1 |= 0x00000040; //sampling channel 1 setting SQ1 to 00001
+ADC1->SQR1 |= 0x00000001; //length of sequence is 1
+ADC1->SMPR1 |= 0x00000018; // sample time is 7.5 clock sample, setting SMP1 to 011
+ADC1->SMPR1 &= 0xFFFFFFDF; // sample time is 7.5 clock sample, setting SMP1 to 011
+
+//Enable ADC
+ADC1->CR |= 0x00000001;
+
+//Wait for ADRDY Flag to go high
+
+while (ADC1->ISR &= 0xFFFFFFFE)
+
+{
+}
+}
