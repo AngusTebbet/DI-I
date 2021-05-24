@@ -11,26 +11,36 @@
 #include "stm32f3xx.h"                  // Device header
 
 int count =255; 
-
 void SubFunction(void);
+void EXTI0_IRQHandler(void);
+volatile int portAPin0percent = 0;	//Initialise variable at 
 
 int main(void)
 {
-	// Enable clock on GPIO port E
-	RCC->AHBENR |= RCC_AHBENR_GPIOEEN;
+	RCC->AHBENR |= RCC_AHBENR_GPIOEEN;	// Enable clock on GPIO port E
+	RCC->APB2ENR |= RCC_APB2ENR_TIM1EN; //Enable timer clock. Timer 4 is connected to APB1
+
+	GPIOE->MODER |= 0x08880000; // Set mode of each pin in port E
+	GPIOE->OTYPER &= ~(0x0000FFFF); // Set output type for each pin required in Port E
+	GPIOE->PUPDR |= 0x55555555; // Set Pull up/Pull down resistor configuration for Port E
+
+	GPIOE->AFR[1]  |= 0x00202020; //Sets PE.2 to TIM3_CH1
+
+	// Initialise the timer
+	TIM1->PSC = 799; // Sets prescalor 
+	TIM1->ARR = 9; // 
+
+	TIM1->CCMR1 |= 0x00000060; // Set the CCR for the associated channel
+	TIM1->CCR1 = 10; //Sets on time to 10 clock pulses
 	
-	//Enable timer clock
-	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
-	//Set timer to 1s period
-	TIM3->PSC = 799; // prescalor value in Timer 3 = 799
-	TIM3->ARR = 9999; // Auto-Reset Register of Timer 3 set to 10^4 - 1 counts
+	TIM1->BDTR |= TIM_BDTR_MOE; //Enable the output mode in the BDTR
+	TIM1->CCER |= TIM_CCER_CC1E; // Enable channel 1 to be output in the CCE1 register
+	
+	TIM1->CR1 |= TIM_CR1_CEN; // Enable the timer
 	
 	// GPIOE is a structure defined in stm32f303xc.h file
 	// Define settings for each output pin using GPIOE structure
-	GPIOE->MODER |= 0x55555555; // Set mode of each pin in port E
-	GPIOE->OTYPER &= ~(0x0000FFFF); // Set output type for each pin required in Port E
-	
-	GPIOE->PUPDR |= 0x55555555; // Set Pull up/Pull down resistor configuration for Port E
+
 
 	TIM3->DIER |= TIM_DIER_UIE; // Set DIER register to watch out for an ‘Update’ Interrupt Enable (UIE) – or 0x00000001
 	NVIC_EnableIRQ(TIM3_IRQn); // Enable Timer ‘x’ interrupt request in NVIC
@@ -39,6 +49,17 @@ int main(void)
 	// Main programme loop - make LED 4 (attached to pin PE.0) turn on and off	
 	
 	SubFunction(); // Function call for ADC Initialisation
+	
+	
+	
+	RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN; //Enable system configuration controller
+	EXTI->IMR |= EXTI_IMR_MR0; //Remove the mask to enable the interrupt. Unmask EXTI0. Set the mask register bit.
+	EXTI->RTSR |= EXTI_RTSR_TR0; // EXTI0 to generate interrupt from rising edge
+	SYSCFG->EXTICR[0] |= SYSCFG_EXTICR1_EXTI0_PA; // Confifgure multiplexing options
+	
+	NVIC_SetPriority(EXTI0_IRQn, 0); // Sets the priority of the interrupt
+	
+	EXTI0_IRQHandler();
 	
 	while(1)
 	{
@@ -111,3 +132,24 @@ while (ADC1->ISR &= 0xFFFFFFFE)
 {
 }
 }
+
+void EXTI0_IRQHandler()
+{
+	if (EXTI->PR & EXTI_PR_PR0) // check source
+	{
+	
+	EXTI->PR |= EXTI_PR_PR0; // clear flag*
+	
+		portAPin0percent = portAPin0percent + 25; //Increment duty cycle by 25%
+	
+	TIM1->CCR1 |= ~portAPin0percent; //Write percentage of duty cycle into the CCR register
+		
+	if(portAPin0percent == 100) //Reset the variable to 0 once it exceeds 100
+		{ 
+		portAPin0percent = 0;
+		}
+	
+	}
+};
+
+
