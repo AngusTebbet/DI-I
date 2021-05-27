@@ -1,6 +1,10 @@
 #include "stm32f3xx.h"                  // Device header 	 
 
 
+enum output(potentiometer, encoder, average);
+enum output current_output;
+enum output nextOutput = potentiometer;
+
 volatile int InterruptPercentage = 0; //Initialise the interrupt variable at 0. 
 void EXTI0_IRQHandler(void);
 void enable_DAC(void);
@@ -103,7 +107,7 @@ void enableDac(void)
 	RCC->AHBENR |= RCC_AHBENR_GPIOAEN; //Enable GPIOA pins for DAC output
 	RCC->APB1ENR |= RCC_APB1ENR_DAC1EN;
 	GPIOA->MODER |= 0x0200; //PA.4 to analogue mode
-	DAC1->CR |= DAC_CR_BOFF1; //Disable the ‘buffer’ function in the DAC control register
+	DAC1->CR |= DAC_CR_BOFF1; //Disable the â€˜bufferâ€™ function in the DAC control register
 	DAC1->CR |= DAC_CR_EN1; //Enable DAC peripheral
 }
 
